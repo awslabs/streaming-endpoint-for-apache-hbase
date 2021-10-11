@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<java.build.version>16</java.build.version>
+		<maven-compiler-plugin.version>3.2</maven-compiler-plugin.version>
+		<hbase.version>2.4.4</hbase.version>
+		<hbase-server.version>${hbase.version}</hbase-server.version>
+		<hbase-testing-util.version>${hbase.version}</hbase-testing-util.version>
+	</properties>
+
+	<groupId>com.amazonaws</groupId>
+	<artifactId>hbase-custom-replication-endpoint</artifactId>
+	<version>alpha-0.1</version>
+	<name>hbase-custom-replication-endpoint</name>
+	<url>http://github.com/shenavaa</url>
+	<packaging>pom</packaging>
+
+	<modules>
+		<module>hbase-endpoint</module>
+		<module>sensor-simulator</module>
+		<module>lambda-kinesis-function</module>
+		<module>lambda-kafka-function</module>
+		<module>kafka-sink</module>
+		<module>kinesis-sink</module>
+	</modules>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	<dependencies>
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.11.1</version>
+		</dependency>
+		
+	</dependencies>
+</project>
+
