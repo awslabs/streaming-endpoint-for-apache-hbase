@@ -10,6 +10,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.amazonaws.SdkClientException;
 import com.amazonaws.hbase.ConfigurationUtil;
 import com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration;
 import com.amazonaws.regions.Regions;
@@ -18,7 +19,6 @@ public class KinesisConfigurationUtil extends ConfigurationUtil {
 	
 	private static final Logger LOG = LoggerFactory.getLogger(KinesisConfigurationUtil.class);
 	
-	private String StreamRegion = Regions.getCurrentRegion().getName();
 	private HashMap<String, String> kStreamTableMap = null;
 	private KinesisProducerConfiguration kplConfig;
 	private boolean isKPLAggregationEnabled;
@@ -108,7 +108,19 @@ public class KinesisConfigurationUtil extends ConfigurationUtil {
 	}
 	
 	public String getStreamRegion() {
-		return this.conf.get(STREAM_REGION,this.StreamRegion);
+		String streamRegion = this.conf.get(STREAM_REGION);
+		
+		try {
+			if (streamRegion == null ) {
+				LOG.info("the "+ STREAM_REGION + "is not set, we are going to rely on EC@ metadata.");
+				streamRegion = Regions.getCurrentRegion().getName();
+			}
+		} catch (SdkClientException e) {
+			LOG.error("Kinesis Endpoint is not running on EC2 so we couldn't rely on "+ STREAM_REGION +" to assume the region.");
+			throw e;
+		}
+		
+		return this.conf.get(STREAM_REGION,streamRegion);
 	}
 	
 	public Long getStreamRequestTimeout() {
