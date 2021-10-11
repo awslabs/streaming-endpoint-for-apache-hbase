@@ -112,7 +112,7 @@ public class KinesisConfigurationUtil extends ConfigurationUtil {
 		
 		try {
 			if (streamRegion == null ) {
-				LOG.info("the "+ STREAM_REGION + "is not set, we are going to rely on EC@ metadata.");
+				LOG.info("the "+ STREAM_REGION + "is not set, we are going to rely on EC2 metadata.");
 				streamRegion = Regions.getCurrentRegion().getName();
 			}
 		} catch (SdkClientException e) {
