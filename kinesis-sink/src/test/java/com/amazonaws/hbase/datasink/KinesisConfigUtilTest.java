@@ -27,7 +27,7 @@ public class KinesisConfigUtilTest {
 		config = HBaseConfiguration.create();
 		try {
 			this.region = Regions.getCurrentRegion().getName();
-		} catch (SdkClientException e) {
+		} catch (Exception e) {
 			// not running on AWS
 			LOG.info("Test not running on EC2. setting region to: " + this.region);
 		}
