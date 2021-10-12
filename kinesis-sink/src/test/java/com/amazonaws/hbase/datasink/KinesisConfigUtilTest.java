@@ -20,7 +20,7 @@ public class KinesisConfigUtilTest {
 	private static final Logger LOG = LoggerFactory.getLogger(KinesisConfigUtilTest.class);
 
 	private Configuration config;
-	private String region="dummy-region";
+	private String region="dummy-region-1";
 	
 	@Before
 	public void setUp() throws Exception {
@@ -45,29 +45,21 @@ public class KinesisConfigUtilTest {
 	
 	@Test
 	public void testRegion() throws Exception {
-		String region="dummy-region";
-		try {
-			region = Regions.getCurrentRegion().getName();
-		} catch (SdkClientException e) {
-			// not running on AWS
-			LOG.info("Test not running on EC2. setting region to: " + region);
-			
-		}
-		config.set("hbase.replication.kinesis.region",region);
+		config.set("hbase.replication.kinesis.region",this.region);
 		KinesisConfigurationUtil util = new KinesisConfigurationUtil(config);
 		
-		System.out.println("Default Region: " + util.getKPLConfiguration().getRegion() + " Region: " + region);
-		assertEquals(region,util.getKPLConfiguration().getRegion());
+		System.out.println("Default Region: " + util.getKPLConfiguration().getRegion() + " Region: " + this.region);
+		assertEquals(this.region,util.getKPLConfiguration().getRegion());
 	}
 	
 	@Test
 	public void testLogLevel() throws Exception {
 		
-		config.set("hbase.replication.kinesis.log-level","debug");
+		config.set("hbase.replication.kinesis.log-level","info");
 		KinesisConfigurationUtil util = new KinesisConfigurationUtil(config);
 		
 		System.out.println("LogLevel: " + util.getKPLConfiguration().getLogLevel());
-		assertEquals("debug",util.getKPLConfiguration().getLogLevel());
+		assertEquals("info",util.getKPLConfiguration().getLogLevel());
 	}
 	
 	

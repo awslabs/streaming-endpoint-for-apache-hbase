@@ -8,7 +8,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<java.build.version>16</java.build.version>
 		<maven-compiler-plugin.version>3.2</maven-compiler-plugin.version>
-		<hbase.version>2.4.4</hbase.version>
+		<hbase.version>2.2.6</hbase.version>
 		<hbase-server.version>${hbase.version}</hbase-server.version>
 		<hbase-testing-util.version>${hbase.version}</hbase-testing-util.version>
 	</properties>

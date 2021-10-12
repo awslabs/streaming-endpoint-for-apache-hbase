@@ -457,7 +457,7 @@
 				"JobFlowRole": {
 					"Ref": "EMRClusterinstanceProfile"
 				},
-				"ReleaseLabel": "emr-6.4.0",
+				"ReleaseLabel": "emr-6.3.1",
 				"LogUri": {
 					"Ref": "LogUri"
 				},
