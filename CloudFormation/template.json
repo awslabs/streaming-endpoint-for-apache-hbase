@@ -318,7 +318,7 @@
 								"    url = base_url+'releases/assets/'+asset \n",
 								"    c = urllib3.PoolManager() \n",
 								"    print (\"Downloading: \" + s3path + assets[asset]) \n",
-								"    http=c.request('GET',url,headers={ 'User-Agent': 'lambda','Accept':'application/octet-stream','Authorization':'Basic BASE64'}, preload_content=False, redirect=True ) \n",
+								"    http=c.request('GET',url,headers={ 'User-Agent': 'lambda','Accept':'application/octet-stream'}, preload_content=False, redirect=True ) \n",
 								"    obj = S3Url(s3path) \n",
 								"    s3 = boto3.resource('s3', config=Config(signature_version='s3v4')) \n",
 								"    step_file=http.data \n",
