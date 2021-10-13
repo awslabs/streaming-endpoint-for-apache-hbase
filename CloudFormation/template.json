@@ -295,10 +295,27 @@
 									"Ref": "WritableS3Location"
 								},
 								"' \n",
+								"base_url='https://api.github.com/repos/shenavaa/hbase-custom-replication-endpoint/' \n",
+								"def get_release_numbers(tagname,filenames): \n",
+  								"  result={} \n",
+								"  url=base_url+'releases' \n",
+ 								"  c = urllib3.PoolManager() \n",
+								"  http=c.request('GET',url,headers={ 'User-Agent': 'lambda','Accept': 'application/vnd.github.v3+json' }, preload_content=False, redirect=True ) \n",
+								"  if (http.status == 200 ): \n",
+								"    data = json.loads(http.data) \n",
+								"    for record in data: \n",
+								"      if (record['tag_name'].lower() == tagname.lower()): \n",
+								"        for asset in record['assets']: \n",
+								"          if (asset['name'] in filenames): \n",
+								"            result[asset['id']]=asset['name'] \n",
+								"  else: \n",
+								"    print ('GITHUB api call failed.') \n",
+								"    print (http.status) \n",
+								"    print (http.data) \n",
+								"  return result \n",
 								"def downloader_toS3(s3path,assets): \n",
-								"  base_url='https://api.github.com/repos/shenavaa/hbase-custom-replication-endpoint/releases/assets/' \n",
 								"  for asset in assets.keys(): \n",
-								"    url = base_url+asset \n",
+								"    url = base_url+'releases/assets/'+asset \n",
 								"    c = urllib3.PoolManager() \n",
 								"    print (\"Downloading: \" + s3path + assets[asset]) \n",
 								"    http=c.request('GET',url,headers={ 'User-Agent': 'lambda','Accept':'application/octet-stream','Authorization':'Basic BASE64'}, preload_content=False, redirect=True ) \n",
@@ -308,7 +325,6 @@
 								"    object = s3.Object(obj.bucket(), obj.key() + assets[asset]) \n",
 								"    object.put( Body=step_file) \n",
 								"def delete_fromS3(s3path,assets): \n",
-								"  base_url='https://api.github.com/repos/shenavaa/hbase-custom-replication-endpoint/releases/assets/' \n",
 								"  for asset in assets.keys(): \n",
 								"    s3 = boto3.resource('s3', config=Config(signature_version='s3v4')) \n",
 								"    obj = S3Url(s3path) \n",
@@ -316,7 +332,8 @@
 								"    response = object.delete() \n",
 								"    print('from s3 delete') \n",
 								"    print(response) \n",
-								"asset_ids = {'45334724':'setupScript.sh','45334640':'lambda-kinesis-function-alpha-0.1.jar','45334614':'lambda-kafka-function-alpha-0.1.jar'} \n",
+								"asset_names= ['boostrap-action.sh','lambda-kinesis-function-alpha-0.1.jar','lambda-kafka-function-alpha-0.1.jar'] \n",
+								"asset_ids=get_release_numbers('alpha-0.1',asset_names) \n",
 								"def handler(event, context): \n",
 								"  if event['RequestType'] == 'Create' or event['RequestType'] == 'Update': \n",
 								"    try: \n",
@@ -478,7 +495,7 @@
 										{
 											"Ref": "WritableS3Location"
 										},
-										"setupScript.sh"
+										"boostrap-action.sh"
 									]
 								]
 							}
@@ -613,7 +630,7 @@
 										{
 											"Ref": "WritableS3Location"
 										},
-										"setupScript.sh"
+										"boostrap-action.sh"
 									]
 								]
 							}
