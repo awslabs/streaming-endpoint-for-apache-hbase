@@ -295,7 +295,7 @@
 									"Ref": "WritableS3Location"
 								},
 								"' \n",
-								"base_url='https://api.github.com/repos/shenavaa/hbase-custom-replication-endpoint/' \n",
+								"base_url='https://api.github.com/repos/awslabs/streaming-endpoint-for-apache-hbase/' \n",
 								"def get_release_numbers(tagname,filenames): \n",
   								"  result={} \n",
 								"  url=base_url+'releases' \n",
