@@ -36,16 +36,6 @@
 			<artifactId>hbase-testing-util</artifactId>
 			<version>${hbase-testing-util.version}</version>
 			<scope>test</scope>
-			<exclusions>
-                                <exclusion>
-                                        <groupId>javax.servlet</groupId>
-                                        <artifactId>servlet-api</artifactId>
-                                </exclusion>
-                                <exclusion>
-                                        <groupId>javax.servlet</groupId>
-                                        <artifactId>servlet-api</artifactId>
-                                </exclusion>
-                        </exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.hbase</groupId>

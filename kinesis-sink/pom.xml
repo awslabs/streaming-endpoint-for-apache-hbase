@@ -34,34 +34,13 @@
 			<artifactId>hbase-testing-util</artifactId>
 			<version>${hbase-testing-util.version}</version>
 			<scope>test</scope>
-			<!-- HBASE-26152 
-                        <exclusions>
-                                <exclusion>
-                                        <groupId>javax.servlet</groupId>
-                                        <artifactId>servlet-api</artifactId>
-                                </exclusion>
-                                <exclusion>
-                                        <groupId>javax.servlet</groupId>
-                                        <artifactId>servlet-api</artifactId>
-				</exclusion>
-                        </exclusions>
-			-->
+
 		</dependency>
 		<dependency>
 			<groupId>org.apache.hbase</groupId>
 			<artifactId>hbase-server</artifactId>
 			<version>${hbase-server.version}</version>
 			<scope>provided</scope>
-			<exclusions>
-                                <exclusion>
-                                        <groupId>javax.servlet</groupId>
-                                        <artifactId>servlet-api</artifactId>
-                                </exclusion>
-                                <exclusion>
-                                        <groupId>javax.servlet</groupId>
-                                        <artifactId>servlet-api</artifactId>
-                                </exclusion>
-                        </exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws.awslabs</groupId>
