@@ -13,13 +13,20 @@
 		<hbase-testing-util.version>${hbase.version}</hbase-testing-util.version>
 	</properties>
 
-	<groupId>com.amazonaws</groupId>
+	<groupId>com.amazonaws.awslabs</groupId>
 	<artifactId>hbase-custom-replication-endpoint</artifactId>
 	<version>alpha-0.1</version>
 	<name>hbase-custom-replication-endpoint</name>
-	<url>http://github.com/shenavaa</url>
+	<url>http://github.com/awslabs/streaming-endpoint-for-apache-hbase</url>
 	<packaging>pom</packaging>
 
+	<distributionManagement>
+          <repository>
+            <id>github</id>
+            <name>GitHub repo</name>
+            <url>https://maven.pkg.github.com/awslabs/streaming-endpoint-for-apache-hbase</url>
+          </repository>
+        </distributionManagement>
 	<modules>
 		<module>hbase-endpoint</module>
 		<module>sensor-simulator</module>

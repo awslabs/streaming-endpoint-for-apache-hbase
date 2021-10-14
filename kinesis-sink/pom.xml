@@ -6,7 +6,7 @@
 	<artifactId>kinesis-sink</artifactId>
 	<name>kinesis-sink</name>
 	<parent>
-		<groupId>com.amazonaws</groupId>
+		<groupId>com.amazonaws.awslabs</groupId>
 		<artifactId>hbase-custom-replication-endpoint</artifactId>
 		<version>alpha-0.1</version>
 	</parent>
@@ -64,7 +64,7 @@
                         </exclusions>
 		</dependency>
 		<dependency>
-			<groupId>com.amazonaws</groupId>
+			<groupId>com.amazonaws.awslabs</groupId>
 			<artifactId>hbase-endpoint</artifactId>
 			<version>${project.version}</version>
 		</dependency>

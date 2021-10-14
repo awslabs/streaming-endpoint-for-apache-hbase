@@ -7,7 +7,7 @@
 	<name>lambda-kafka-function</name>
 
 	<parent>
-		<groupId>com.amazonaws</groupId>
+		<groupId>com.amazonaws.awslabs</groupId>
 		<artifactId>hbase-custom-replication-endpoint</artifactId>
 		<version>alpha-0.1</version>
 	</parent>
@@ -24,7 +24,7 @@
 		</dependency>
 		<dependency>
 			<artifactId>hbase-endpoint</artifactId>
-			<groupId>com.amazonaws</groupId>
+			<groupId>com.amazonaws.awslabs</groupId>
 			<version>${project.version}</version>
 			<exclusions>
 				<exclusion>
