@@ -181,6 +181,12 @@ Type: Integer
 Default: 5
 Description: Maximum rumber of KPL connections to the stream, per regionserver
 
+hbase.replication.kinesis.syncputs
+Required: no
+Type: Boolean
+Default: false
+Description: If KPL addUserRecords should block or we put records asynchronusly.
+
 hbase.replication.kinesis.request-timeout
 Required: no
 Type: long
