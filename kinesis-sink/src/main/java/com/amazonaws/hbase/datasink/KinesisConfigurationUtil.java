@@ -40,6 +40,9 @@ public class KinesisConfigurationUtil extends ConfigurationUtil {
 	public static final String STREAM_MAX_CONNECTION = 
 			REPLICATIOM_KINESIS+".max-connection";
 	
+	public static final String SYMCHRONIZED = 
+			REPLICATIOM_KINESIS+".syncputs";
+	
 	public static final String STREAM_REQUEST_TIMEOUT = 
 			REPLICATIOM_KINESIS+".request-timeout";
 	
@@ -170,6 +173,10 @@ public class KinesisConfigurationUtil extends ConfigurationUtil {
 
 	public boolean isKPLAggregationEnabled() {
 		return isKPLAggregationEnabled;
+	}
+	
+	public boolean isSynchPutsEnabled() {
+		return this.conf.getBoolean(SYMCHRONIZED, false);
 	}
 	
 }

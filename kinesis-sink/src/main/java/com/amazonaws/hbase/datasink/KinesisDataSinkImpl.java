@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
@@ -26,6 +26,11 @@ import com.amazonaws.services.kinesis.producer.Attempt;
 import com.amazonaws.services.kinesis.producer.KinesisProducer;
 import com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration;
 import com.amazonaws.services.kinesis.producer.UserRecordResult;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.Futures;
 
 public class KinesisDataSinkImpl extends DataSink {
 	private MessageDigest md;
@@ -35,6 +40,10 @@ public class KinesisDataSinkImpl extends DataSink {
 	private KinesisProducer kinesis = null;
 
 	private KinesisConfigurationUtil configUtil;
+
+	
+	private FutureCallback<UserRecordResult> putRecordCallback;
+	private ListeningExecutorService executor;
 	
 	/**
 	 * Constructor
@@ -42,6 +51,8 @@ public class KinesisDataSinkImpl extends DataSink {
 	 */
 	public KinesisDataSinkImpl(Configuration config)  {
 		super(config);
+		this.configUtil = this.getConfigurationUtil();
+		
 		try {
 			md = MessageDigest.getInstance("MD5");
 		} catch (NoSuchAlgorithmException e) {
@@ -53,6 +64,21 @@ public class KinesisDataSinkImpl extends DataSink {
 					+ "    SHA-256\n"
 					+ "", e);
 			e.printStackTrace();
+		}
+		if ( this.configUtil.isSynchPutsEnabled() == false) {
+				LOG.info("Initilizing Asynchronous putRecords. We wil skip  failed PutRecords will be lost! ");
+				putRecordCallback = new FutureCallback<UserRecordResult>() {     
+					@Override 
+					public void onFailure(Throwable t) {
+						/* Analyze and respond to the failure  */ 
+					};     
+					@Override 
+					public void onSuccess(UserRecordResult result) { 
+						/* Respond to the success */ 
+					};
+			};
+		
+			executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(50));
 		}
 	}
 	
@@ -75,7 +101,9 @@ public class KinesisDataSinkImpl extends DataSink {
 	 */
 	public void putRecord(ByteBuffer buffer, String tablename) throws IOException, InterruptedException, ExecutionException {
 		String partition = UUIDHelper.getBase64UUID();
-		LOG.debug("Putting record in random partition: " + partition);
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("Putting record in random partition: " + partition);
+		}
 		this.putRecord( buffer,  tablename,partition);
 	}
 	
@@ -91,34 +119,41 @@ public class KinesisDataSinkImpl extends DataSink {
 	 */
 	public void putRecord(ByteBuffer buffer, String tablename,String partition) throws IOException, InterruptedException, ExecutionException {
 		if (kinesis == null) { // creating the producer when there is a request.
-			KinesisProducerConfiguration config = this.getConfigurationUtil().getKPLConfiguration();
-			LOG.debug("First Time ptoducer. endpoint " + config.getKinesisEndpoint() + " port: " + config.getKinesisPort() );
+			KinesisProducerConfiguration config = configUtil.getKPLConfiguration();
+			LOG.debug("First Time producer. endpoint " + config.getKinesisEndpoint() + " port: " + config.getKinesisPort() );
 			this.kinesis = KinesisProducerFactory.getProducer(config);
 		}
-		
-		
+	
 		md.update(partition.getBytes());
 		String digest = Base64.getEncoder().encodeToString(md.digest());
-		LOG.debug("Putting record in digest partition: " + digest);
 		String destination = this.getConfigurationUtil().getStreamNameFromTableName(tablename);
-		Future<UserRecordResult> putFuture = (Future<UserRecordResult>) kinesis.addUserRecord(destination, digest, buffer);
+
+			
 		long time = System.currentTimeMillis();
-		LOG.debug("Starting a put " + time);
-		UserRecordResult result = putFuture.get(); // this does block     
-		LOG.debug("Out of Put " + System.currentTimeMillis());
 		
-		if (result.isSuccessful()) {         
-			LOG.debug(
-					"Put record into shard= {} PartitionKey = {}, time={} "
-					, result.getShardId()
-					, digest
-					, System.currentTimeMillis() - time); 
+		if (configUtil.isSynchPutsEnabled()) {
+			Future<UserRecordResult> putFuture = (Future<UserRecordResult>) kinesis.addUserRecord(destination, digest, buffer);
+
+			UserRecordResult result = putFuture.get(); // this does block     
+		
+			if (result.isSuccessful()) {
+				if (LOG.isDebugEnabled()) {
+					LOG.debug(
+							"Put record into shard= {} PartitionKey = {}, time={} 	"
+							, result.getShardId()
+							, digest
+							, System.currentTimeMillis() - time); 
+				}	
+			} else {
+				for (Attempt attempt : result.getAttempts()) {
+					LOG.error(attempt.getErrorMessage());
+					throw new IOException("Record faild to replicate");
+				}
+			}	
 		} else {
-			for (Attempt attempt : result.getAttempts()) {
-				LOG.error(attempt.getErrorMessage());
-				throw new IOException("Record faild to replicate");
-			}
-		}		
+			ListenableFuture<UserRecordResult> putFuture =  kinesis.addUserRecord(destination, digest, buffer);
+			Futures.addCallback(putFuture,putRecordCallback, executor);
+		}
 	}
 
 	/**
@@ -168,26 +203,19 @@ public class KinesisDataSinkImpl extends DataSink {
 
 	@Override
 	public boolean supportsTransaction() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public void beginTransaction() {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void commitTransaction() {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void abortTransaction() {
-		// TODO Auto-generated method stub
-		
 	}
 
 }
