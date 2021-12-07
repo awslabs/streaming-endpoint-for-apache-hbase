@@ -22,10 +22,11 @@ drop 'test-table'
 
 There are 2 Sink implamentations in this reporsitory. An implementation is mandatory to be set by "hbase.replication.sink-factory-class" in hbase-site.xml. All the available properties are explained in "Supported HBase confiuration properties" section. 
 
-Sink implementation for Kinesis Streams: com.amazonaws.hbase.datasink.KinesisDataSinkImpl
+Sink implementation for Kinesis Data Streams: com.amazonaws.hbase.datasink.KinesisDataSinkImpl
 
-Sink implementation for Kafka: com.amazonaws.hbase.datasink.KafkaDataSinkImpl
+Sink implementation for Apache Kafka and Amazon MSK: com.amazonaws.hbase.datasink.KafkaDataSinkImpl
 
+Sink implementation for Kinesis Data Firehose: com.amazonaws.hbase.datasink.FirehoseDataSinkImpl 
 
 In case of Kakfa, either an MSK arn should be provided, or the '''bootstrap.servers''' attribute should be cofigured. If both configure, the '''bootstrap.servers''' will take priority.
 
@@ -247,6 +248,23 @@ Required: no
 Type: integer
 Description: KPL TTL of records. Any record older than the ttl will be discarded. 
 Default: Integer.MAX_VALUE
+
+hbase.replication.firehose.stream-table-map
+Required: yes
+Type: String
+Default: table1:firehose1,table2:firehose2
+
+hbase.replication.firehose.region
+Required: no
+Type: String
+Description: The Kinesis Firehose delivery region
+Default: The EC2 instance region queried by SDK. 
+
+hbase.replication.firehose.batch.enabled
+Required: no
+Type: Boolean
+Description: If the records should be put using PutRecordBatch requests
+Default: false
 
 ```
 
