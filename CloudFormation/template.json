@@ -1,0 +1,1385 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "AWS CloudFormation Sample Template to demonstrate custom Apache Hbase replication endpoint. **WARNING** This template creates resources in your account ( VPC,Private and public subnets, EMR cluster, Amazon MSK, Amazon Kinesis Data stream, Lambda functions, IAM roles and Security Groups, NAT Gateways and Internet gateway ) . You will be billed for the AWS resources used if you create a stack from this template.",
+  "Parameters": {
+    "destination": {
+      "Type": "String",
+      "Default": "Kafka",
+      "AllowedValues": [
+        "Kafka",
+        "Kinesis"
+      ],
+      "Description": "We can demonstrate Hbase replication to either Amazon MSK or Kinesis Streams."
+    },
+    "VpcCIDR": {
+      "Description": "Please enter the IP range (CIDR notation) for this VPC",
+      "Type": "String",
+      "Default": "10.192.0.0/16"
+    },
+    "PublicSubnet1CIDR": {
+      "Description": "Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone",
+      "Type": "String",
+      "Default": "10.192.10.0/24"
+    },
+    "PrivateSubnet1CIDR": {
+      "Description": "Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone",
+      "Type": "String",
+      "Default": "10.192.20.0/24"
+    },
+    "PrivateSubnet2CIDR": {
+      "Description": "Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone",
+      "Type": "String",
+      "Default": "10.192.21.0/24"
+    },
+    "KeyName": {
+      "Description": "Must be an existing SSH Keyname",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "MasterInstanceType": {
+      "Description": "Instance type to be used for the master instance.",
+      "Type": "String",
+      "Default": "m5d.xlarge"
+    },
+    "CoreInstanceType": {
+      "Description": "Instance type to be used for core instances.",
+      "Type": "String",
+      "Default": "m5d.xlarge"
+    },
+    "NumberOfCoreInstances": {
+      "Description": "Must be a valid number",
+      "Type": "Number",
+      "Default": 1
+    },
+    "LogUri": {
+      "Description": "Must be a valid S3 URL",
+      "Default": "s3://your-bucket/elasticmapreduce/",
+      "Type": "String"
+    },
+    "StreamName": {
+      "Description": "Must be a valid Kinesis Stream or Kafka topic name ",
+      "Default": "hbase-replication",
+      "Type": "String"
+    },
+    "TableName": {
+      "Description": "HBase Table Name ",
+      "Default": "tablename",
+      "Type": "String"
+    },
+    "WritableS3Location": {
+      "Description": "A location on S3, in the same region, to write temporary application scripts. It should end with '/' - s3://bucketname/keypath/ ",
+      "Type": "String",
+      "Default": "s3://your-bucket/writable/",
+      "AllowedPattern": "s3://(.*/)+"
+    },
+    "Disclaimer": {
+      "Description": "This has to be true to launch.",
+      "Type" :"String",
+      "AllowedValues": [
+        "False",
+        "True"
+      ],
+      "AllowedPattern" : "True|true",
+      "ConstraintDescription" : "Turn disclaimer flag to true to allow launching this stack." 
+    }
+  },
+  "Metadata": {
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [
+                {
+                    "Label": {
+                        "default": "Network Configuration"
+                    },
+                    "Parameters": [
+                        "VpcCIDR",
+                        "PublicSubnet1CIDR",
+                        "PrivateSubnet1CIDR",
+                        "PrivateSubnet2CIDR"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "EMR Cluster Specification"
+                    },
+                    "Parameters": [
+                        "KeyName",
+                        "MasterInstanceType",
+                        "CoreInstanceType",
+                        "NumberOfCoreInstances",
+			"LogUri"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Replication Destination"
+                    },
+                    "Parameters": [
+                        "destination",
+                        "StreamName"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Application Configuration"
+                    },
+                    "Parameters": [
+                        "TableName",
+                        "WritableS3Location"
+                    ]
+                },
+		{
+		   "Label": {
+			"default": "Disclaimer" 
+		   },
+		   "Parameters": [
+			"Disclaimer"
+		   ]
+		}
+            ],
+            "ParameterLabels": {
+                "VpcCIDR": {
+                    "default": "The IP CIDR of the VPC to create:"
+                },
+                "PublicSubnet1CIDR": {
+		    "default": "Public subnet CIDR for EMR cluster:"
+		},
+                "PrivateSubnet1CIDR": {
+		    "default": "Private subnet CIDR for Lambda and MSK if chosen:" 
+		},
+		"PrivateSubnet2CIDR": {
+		    "default": "Private subnet CIDR for Lambda and MSK if chosen:"
+		},
+		"KeyName": {
+		    "default": "SSH key name for EMR Cluster:"
+		},
+		"MasterInstanceType": {
+		    "default": "EMR Clusters Master node's instance-type:"
+		},
+		"CoreInstanceType": {
+		    "default": "EMR Clusters Master nodes instance-type:"
+		},
+		"NumberOfCoreInstances": {
+		    "default": "EMR Clusters Core nodes count:"
+		},
+		"LogUri":{
+		    "default": "EMR Clusters Logging Uri:"
+		},
+		"destination":{
+		    "default": "Demonstrate replication to MSK or KDS:"
+		},
+		"StreamName": {
+		    "default": "Topic or streams name:"
+		},
+                "TableName": {
+		    "default": "Source table name in HBase to replicate:"
+		},
+		"WritableS3Location": {
+		    "default": "A temporary S3 location, in the same region as resources to localize Lambda application jars and bootstrap scrtips from Github:" 
+		},
+		"Disclaimer": {
+		    "default": "This is an AWS CloudFormation Sample Template to demonstrate custom Apache Hbase replication endpoints. **WARNING** This template creates resources in this account ( VPC ,Private and public subnets, EMR cluster, Amazon MSK, Amazon Kinesis Data stream, Lambda functions, IAM roles and Security Groups, NAT Gateways and Internet gateway ) and takes several minutes to launch. You will be billed for the AWS resources used if you create a stack from this template."
+		}
+            }
+        }
+  },
+  "Mappings": {},
+  "Conditions": {
+    "KafkaCondition": {
+      "Fn::Equals": [
+        {
+          "Ref": "destination"
+        },
+        "Kafka"
+      ]
+    },
+    "KinesisCondition": {
+      "Fn::Equals": [
+        {
+          "Ref": "destination"
+        },
+        "Kinesis"
+      ]
+    }
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "VpcCIDR"
+        },
+        "EnableDnsSupport": "true",
+        "EnableDnsHostnames": "true"
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "DependsOn": [ "VPC" ],
+      "Properties": {}
+    },
+    "InternetGatewayAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "DependsOn": [
+        "VPC",
+        "InternetGateway"
+      ],
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "PublicSubnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "DependsOn": [ "VPC", "InternetGatewayAttachment" ],
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PublicSubnet1CIDR"
+        },
+        "MapPublicIpOnLaunch": "true"
+      }
+    },
+    "PrivateSubnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "DependsOn": "VPC",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PrivateSubnet1CIDR"
+        },
+        "MapPublicIpOnLaunch": "false"
+      }
+    },
+    "PrivateSubnet2": {
+      "Type": "AWS::EC2::Subnet",
+      "Condition": "KafkaCondition",
+      "DependsOn": "VPC",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            1,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PrivateSubnet2CIDR"
+        },
+        "MapPublicIpOnLaunch": "false"
+      }
+    },
+    "NatGateway1EIP": {
+      "Type": "AWS::EC2::EIP",
+      "DependsOn": [ "InternetGatewayAttachment", "PublicSubnet1" ],
+      "Properties": {
+        "Domain": "vpc"
+      }
+    },
+    "NatGateway2EIP": {
+      "Type": "AWS::EC2::EIP",
+      "Condition": "KafkaCondition",
+      "DependsOn": [ "InternetGatewayAttachment", "PublicSubnet1" ],
+      "Properties": {
+        "Domain": "vpc"
+      }
+    },
+    "NatGateway1": {
+      "Type": "AWS::EC2::NatGateway",
+      "DependsOn": [
+        "NatGateway1EIP",
+        "PublicSubnet1"
+      ],
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": "NatGateway1EIP.AllocationId"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet1"
+        }
+      }
+    },
+    "NatGateway2": {
+      "Type": "AWS::EC2::NatGateway",
+      "Condition": "KafkaCondition",
+      "DependsOn": [
+        "NatGateway2EIP",
+        "PublicSubnet1"
+      ],
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": "NatGateway2EIP.AllocationId"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet1"
+        }
+      }
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "DependsOn": "VPC",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "DefaultPublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "DependsOn": [ "InternetGatewayAttachment", "PublicRouteTable", "InternetGateway" ],
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PublicSubnet1RouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "DependsOn": [ "PublicRouteTable", "PublicSubnet1" ],
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet1"
+        }
+      }
+    },
+    "PrivateRouteTable1": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "PrivateRouteTable2": {
+      "Type": "AWS::EC2::RouteTable",
+      "Condition": "KafkaCondition",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "DefaultPrivateRoute1": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable1"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NatGateway1"
+        }
+      }
+    },
+    "DefaultPrivateRoute2": {
+      "Type": "AWS::EC2::Route",
+      "Condition": "KafkaCondition",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable2"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NatGateway2"
+        }
+      }
+    },
+    "PrivateSubnet1RouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable1"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnet1"
+        }
+      }
+    },
+    "PrivateSubnet2RouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Condition": "KafkaCondition",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable2"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnet2"
+        }
+      }
+    },
+    "ScriptSetupResource": {
+      "Type": "Custom::ScriptSetupResource",
+      "Version": "1.0",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "ScriptSetupLambdaFunction",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "ScriptSetupLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Description": "This Lambda function executes only once to create sample step script and downloads lambdafunction's JAR into S3",
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "",
+              [
+                "import json \n",
+                "import os \n",
+                "import traceback \n",
+                "import cfnresponse \n",
+                "import boto3 \n",
+                "import base64 \n",
+                "import urllib3 \n",
+                "\n",
+                "try: \n",
+                "  from urlparse import urlparse \n",
+                "except ImportError: \n",
+                "  from urllib.parse import urlparse \n",
+                "\n",
+                "class S3Url(object): \n",
+                "  def __init__(self, url): \n",
+                "    self._parsed = urlparse(url, allow_fragments=False) \n",
+                "\n",
+                "  def bucket(self): \n",
+                "    return self._parsed.netloc \n",
+                "\n",
+                "  def key(self): \n",
+                "    r='' \n",
+                "    try: \n",
+                "      if self._parsed.query: \n",
+                "        r = self._parsed.path.lstrip('/') + '?' + self._parsed.query \n",
+                "      else: \n",
+                "        r = self._parsed.path.lstrip('/') \n",
+                "      if r[-1] == '/': \n",
+                "        return r \n",
+                "      return r+'/' \n",
+                "    except Exception: \n",
+                "      return '' \n",
+                "\n",
+                "  def url(self): \n",
+                "    return self._parsed.geturl() \n",
+                "\n",
+                "from botocore.client import Config \n",
+                "print('Loading function') \n",
+                "responseData={} \n",
+                "WritableLocation='",
+                {
+                  "Ref": "WritableS3Location"
+                },
+                "' \n",
+                "base_url='https://api.github.com/repos/awslabs/streaming-endpoint-for-apache-hbase/' \n",
+                "def get_release_numbers(tagname,filenames): \n",
+                "  result={} \n",
+                "  url=base_url+'releases' \n",
+                "  c = urllib3.PoolManager() \n",
+                "  http=c.request('GET',url,headers={ 'User-Agent': 'lambda','Accept': 'application/vnd.github.v3+json' }, preload_content=False, redirect=True ) \n",
+                "  if (http.status == 200 ): \n",
+                "    data = json.loads(http.data) \n",
+                "    for record in data: \n",
+                "      if (record['tag_name'].lower() == tagname.lower()): \n",
+                "        for asset in record['assets']: \n",
+                "          if (asset['name'] in filenames): \n",
+                "            result[asset['id']]=asset['name'] \n",
+                "  else: \n",
+                "    print ('GITHUB api call failed.') \n",
+                "    print (http.status) \n",
+                "    print (http.data) \n",
+                "  return result \n",
+                "def downloader_toS3(s3path,assets): \n",
+                "  for asset in assets.keys(): \n",
+                "    url = base_url+'releases/assets/'+str(asset) \n",
+                "    c = urllib3.PoolManager() \n",
+                "    print (\"Downloading: \" + s3path + str(assets[asset])) \n",
+                "    http=c.request('GET',url,headers={ 'User-Agent': 'lambda','Accept':'application/octet-stream'}, preload_content=False, redirect=True ) \n",
+                "    obj = S3Url(s3path) \n",
+                "    s3 = boto3.resource('s3', config=Config(signature_version='s3v4')) \n",
+                "    step_file=http.data \n",
+                "    object = s3.Object(str(obj.bucket()), str(obj.key()) + str(assets[asset])) \n",
+                "    object.put( Body=step_file) \n",
+                "def delete_fromS3(s3path,assets): \n",
+                "  for asset in assets.keys(): \n",
+                "    s3 = boto3.resource('s3', config=Config(signature_version='s3v4')) \n",
+                "    obj = S3Url(s3path) \n",
+                "    object = s3.Object(str(obj.bucket()), str(obj.key()) + str(assets[asset])) \n",
+                "    response = object.delete() \n",
+                "    print('from s3 delete') \n",
+                "    print(response) \n",
+                "asset_names= ['bootstrap-action.sh','lambda-kinesis-function-alpha-0.1.jar','lambda-kafka-function-alpha-0.1.jar'] \n",
+                "asset_ids=get_release_numbers('alpha-0.1',asset_names) \n",
+                "def handler(event, context): \n",
+                "  if event['RequestType'] == 'Create' or event['RequestType'] == 'Update': \n",
+                "    try: \n",
+                "      downloader_toS3(WritableLocation,asset_ids) \n",
+                "      cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData) \n",
+                "    except Exception as e: \n",
+                "      print(e) \n",
+                "      cfnresponse.send(event, context, cfnresponse.FAILED, responseData) \n",
+                "  elif event['RequestType'] == 'Delete': \n",
+                "    try: \n",
+                "      print(\"CustomResourceDelete\") \n",
+                "      delete_fromS3(WritableLocation,asset_ids) \n",
+                "      cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData) \n",
+                "    except Exception as e: \n",
+                "      print(e) \n",
+                "      cfnresponse.send(event, context, cfnresponse.FAILED, responseData) \n",
+                "  else: \n",
+                "    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData) \n"
+              ]
+            ]
+          }
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "AppLambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "MemorySize": "512",
+        "Runtime": "python3.7",
+        "Timeout": 300
+      }
+    },
+    "EMRClusterKinesis": {
+      "DependsOn": [
+        "PublicSubnet1",
+        "KinesisStream",
+        "EMRClusterServiceRole",
+        "EMRClusterinstanceProfileRole",
+        "EMRClusterinstanceProfile",
+        "EMRAdditionalSecurityGroup"
+      ],
+      "Type": "AWS::EMR::Cluster",
+      "Condition": "KinesisCondition",
+      "Properties": {
+        "Applications": [
+          {
+            "Name": "Ganglia"
+          },
+          {
+            "Name": "Hbase"
+          },
+          {
+            "Name": "Zookeeper"
+          }
+        ],
+        "Configurations": [
+          {
+            "Classification": "hbase-site",
+            "ConfigurationProperties": {
+              "hbase.replication.kinesis.stream-table-map": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "TableName"
+                    },
+                    ":",
+                    {
+                      "Ref": "StreamName"
+                    }
+                  ]
+                ]
+              },
+              "hbase.replication.kinesis.region": {
+                "Ref": "AWS::Region"
+              },
+              "hbase.replication.kinesis.aggregation-enabled": "false",
+              "hbase.replication.bulkload.enabled": "true",
+              "hbase.replication.cluster.id": "hbase1",
+              "hbase.replication.sink-factory-class": "com.amazonaws.hbase.datasink.KinesisDataSinkImpl",
+              "hbase.replication.compression-enabled": "false"
+            }
+          },
+          {
+            "Classification": "hbase-env",
+            "ConfigurationProperties": {},
+            "Configurations": [
+              {
+                "Classification": "export",
+                "ConfigurationProperties": {
+                  "HBASE_CLASSPATH": "$HBASE_CLASSPATH:/usr/lib/hbase-extra/kinesis-sink-alpha-0.1.jar"
+                },
+                "Configurations": []
+              }
+            ]
+          }
+        ],
+        "Instances": {
+          "Ec2KeyName": {
+            "Ref": "KeyName"
+          },
+          "Ec2SubnetId": {
+            "Ref": "PublicSubnet1"
+          },
+          "EmrManagedMasterSecurityGroup": {
+            "Ref": "EMRAdditionalSecurityGroup"
+          },
+          "EmrManagedSlaveSecurityGroup": {
+            "Ref": "EMRAdditionalSecurityGroup"
+          },
+          "MasterInstanceGroup": {
+            "InstanceCount": 1,
+            "InstanceType": {
+              "Ref": "MasterInstanceType"
+            },
+            "Market": "ON_DEMAND",
+            "Name": "Master"
+          },
+          "CoreInstanceGroup": {
+            "InstanceCount": {
+              "Ref": "NumberOfCoreInstances"
+            },
+            "InstanceType": {
+              "Ref": "CoreInstanceType"
+            },
+            "Market": "ON_DEMAND",
+            "Name": "Core"
+          },
+          "TerminationProtected": false
+        },
+        "VisibleToAllUsers": true,
+        "JobFlowRole": {
+          "Ref": "EMRClusterinstanceProfile"
+        },
+        "ReleaseLabel": "emr-6.3.1",
+        "LogUri": {
+          "Ref": "LogUri"
+        },
+        "Name": "SourceCluster",
+        "AutoScalingRole": "EMR_AutoScaling_DefaultRole",
+        "ServiceRole": {
+          "Ref": "EMRClusterServiceRole"
+        },
+        "BootstrapActions": [
+          {
+            "Name": "SetupScript",
+            "ScriptBootstrapAction": {
+              "Args": [],
+              "Path": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "WritableS3Location"
+                    },
+                    "bootstrap-action.sh"
+                  ]
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "EMRClusterKafka": {
+      "DependsOn": [
+        "PublicSubnet1",
+        "MSK",
+        "EMRClusterServiceRole",
+        "EMRClusterinstanceProfileRole",
+        "EMRClusterinstanceProfile",
+        "EMRAdditionalSecurityGroup"
+      ],
+      "Type": "AWS::EMR::Cluster",
+      "Condition": "KafkaCondition",
+      "Properties": {
+        "Applications": [
+          {
+            "Name": "Ganglia"
+          },
+          {
+            "Name": "Hbase"
+          },
+          {
+            "Name": "Zookeeper"
+          }
+        ],
+        "Configurations": [
+          {
+            "Classification": "hbase-site",
+            "ConfigurationProperties": {
+              "hbase.replication.kafka.topic-table-map": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "TableName"
+                    },
+                    ":",
+                    {
+                      "Ref": "StreamName"
+                    }
+                  ]
+                ]
+              },
+              "hbase.replication.kafka.msk.arn": {
+                "Ref": "MSK"
+              },
+              "hbase.replication.bulkload.enabled": "true",
+              "hbase.replication.cluster.id": "hbase1",
+              "hbase.replication.sink-factory-class": "com.amazonaws.hbase.datasink.KafkaDataSinkImpl",
+              "hbase.replication.compression-enabled": "false",
+              "hbase.replication.kafka.security.protocol": "PLAINTEXT",
+              "hbase.replication.kafka.topic.create": "true"
+            }
+          },
+          {
+            "Classification": "hbase-env",
+            "ConfigurationProperties": {},
+            "Configurations": [
+              {
+                "Classification": "export",
+                "ConfigurationProperties": {
+                  "HBASE_CLASSPATH": "$HBASE_CLASSPATH:/usr/lib/hbase-extra/kafka-sink-alpha-0.1.jar"
+                },
+                "Configurations": []
+              }
+            ]
+          }
+        ],
+        "Instances": {
+          "Ec2KeyName": {
+            "Ref": "KeyName"
+          },
+          "Ec2SubnetId": {
+            "Ref": "PublicSubnet1"
+          },
+          "AdditionalMasterSecurityGroups": [
+            {
+              "Ref": "EMRAdditionalSecurityGroup"
+            }
+          ],
+          "AdditionalSlaveSecurityGroups": [
+            {
+              "Ref": "EMRAdditionalSecurityGroup"
+            }
+          ],
+          "EmrManagedMasterSecurityGroup": {
+            "Ref": "EMRAdditionalSecurityGroup"
+          },
+          "EmrManagedSlaveSecurityGroup": {
+            "Ref": "EMRAdditionalSecurityGroup"
+          },
+          "MasterInstanceGroup": {
+            "InstanceCount": 1,
+            "InstanceType": {
+              "Ref": "MasterInstanceType"
+            },
+            "Market": "ON_DEMAND",
+            "Name": "Master"
+          },
+          "CoreInstanceGroup": {
+            "InstanceCount": {
+              "Ref": "NumberOfCoreInstances"
+            },
+            "InstanceType": {
+              "Ref": "CoreInstanceType"
+            },
+            "Market": "ON_DEMAND",
+            "Name": "Core"
+          },
+          "TerminationProtected": false
+        },
+        "VisibleToAllUsers": true,
+        "JobFlowRole": {
+          "Ref": "EMRClusterinstanceProfile"
+        },
+        "ReleaseLabel": "emr-6.3.0",
+        "LogUri": {
+          "Ref": "LogUri"
+        },
+        "Name": "SourceCluster",
+        "AutoScalingRole": "EMR_AutoScaling_DefaultRole",
+        "ServiceRole": {
+          "Ref": "EMRClusterServiceRole"
+        },
+        "BootstrapActions": [
+          {
+            "Name": "SetupScript",
+            "ScriptBootstrapAction": {
+              "Args": [],
+              "Path": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "WritableS3Location"
+                    },
+                    "bootstrap-action.sh"
+                  ]
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "ProducerAppStep": {
+      "Type": "AWS::EMR::Step",
+      "Properties": {
+        "ActionOnFailure": "CONTINUE",
+        "HadoopJarStep": {
+          "Jar": "command-runner.jar",
+          "Args": [
+            "bash",
+            "-c",
+            {
+              "Fn::Join": [
+                "",
+                [
+                  "java -cp /usr/lib/hbase-extra/sensor-simulator-alpha-0.1.jar:`hbase classpath` com.amazonaws.examples.sensorsimulator.Main ",
+                  {
+                    "Ref": "TableName"
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        "JobFlowId": {
+          "Fn::If": [
+            "KafkaCondition",
+            {
+              "Ref": "EMRClusterKafka"
+            },
+            {
+              "Ref": "EMRClusterKinesis"
+            }
+          ]
+        },
+        "Name": "Producer"
+      }
+    },
+    "EMRAdditionalSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "DependsOn": "VPC",
+      "Properties": {
+        "GroupDescription": "Rule to allow Lambda Connection",
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "EMRAdditionalSecurityGroupRule": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "EMRAdditionalSecurityGroup",
+      "Properties": {
+        "GroupId": {
+          "Ref": "EMRAdditionalSecurityGroup"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": "0",
+        "ToPort": "65535",
+        "SourceSecurityGroupId": {
+          "Ref": "EMRAdditionalSecurityGroup"
+        }
+      }
+    },
+    "LambdaKinesisConsumer": {
+      "DependsOn": [
+        "ProducerAppStep",
+        "GetReqAttrs",
+        "InternetGatewayAttachment"
+      ],
+      "Condition": "KinesisCondition",
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Description": "This Lambda function reads records from Kinesis Stream, enriches the records with score qualifier and writes them to the same table.",
+        "Code": {
+          "S3Bucket": {
+            "Fn::GetAtt": [
+              "GetReqAttrs",
+              "Bucket"
+            ]
+          },
+          "S3Key": {
+            "Fn::Join": [
+              "",
+              [
+                {
+                  "Fn::GetAtt": [
+                    "GetReqAttrs",
+                    "Key"
+                  ]
+                },
+                "lambda-kinesis-function-alpha-0.1.jar"
+              ]
+            ]
+          }
+        },
+        "Handler": "com.amazonaws.hbase.lambda.KinesisHandler::handleRequest",
+        "Environment": {
+          "Variables": {
+            "CLUSTERID": {
+              "Fn::If": [
+                "KafkaCondition",
+                {
+                  "Ref": "EMRClusterKafka"
+                },
+                {
+                  "Ref": "EMRClusterKinesis"
+                }
+              ]
+            },
+            "TABLENAME": {
+              "Ref": "TableName"
+            },
+            "COMPRESSIONENABLED": "false"
+          }
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "AppLambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Ref": "EMRAdditionalSecurityGroup"
+            }
+          ],
+          "SubnetIds": [
+            {
+              "Ref": "PrivateSubnet1"
+            }
+          ]
+        },
+        "MemorySize": "1024",
+        "Runtime": "java8",
+        "Timeout": 300
+      }
+    },
+    "LambdaKafkaConsumer": {
+      "DependsOn": [
+        "ProducerAppStep",
+        "GetReqAttrs",
+	"InternetGatewayAttachment"
+      ],
+      "Condition": "KafkaCondition",
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Description": "This Lambda function reads records from Kafka, enriches the records with score qualifier and writes them to the same table.",
+        "Code": {
+          "S3Bucket": {
+            "Fn::GetAtt": [
+              "GetReqAttrs",
+              "Bucket"
+            ]
+          },
+          "S3Key": {
+            "Fn::Join": [
+              "",
+              [
+                {
+                  "Fn::GetAtt": [
+                    "GetReqAttrs",
+                    "Key"
+                  ]
+                },
+                "lambda-kafka-function-alpha-0.1.jar"
+              ]
+            ]
+          }
+        },
+        "Handler": "com.amazonaws.hbase.lambda.KafkaHandler::handleRequest",
+        "Environment": {
+          "Variables": {
+            "CLUSTERID": {
+              "Fn::If": [
+                "KafkaCondition",
+                {
+                  "Ref": "EMRClusterKafka"
+                },
+                {
+                  "Ref": "EMRClusterKinesis"
+                }
+              ]
+            },
+            "TABLENAME": {
+              "Ref": "TableName"
+            },
+            "COMPRESSIONENABLED": "false"
+          }
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "AppLambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Ref": "EMRAdditionalSecurityGroup"
+            }
+          ],
+          "SubnetIds": [
+            {
+              "Ref": "PrivateSubnet1"
+            },
+            {
+              "Ref": "PrivateSubnet2"
+            }
+          ]
+        },
+        "MemorySize": "1024",
+        "Runtime": "java8",
+        "Timeout": 300
+      }
+    },
+    "KafkaEventSourceMapping": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "Condition": "KafkaCondition",
+      "Properties": {
+        "EventSourceArn": {
+          "Ref": "MSK"
+        },
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaKafkaConsumer",
+            "Arn"
+          ]
+        },
+        "StartingPosition": "TRIM_HORIZON",
+        "Topics": [
+          {
+            "Ref": "StreamName"
+          }
+        ]
+      }
+    },
+    "KinesisStream": {
+      "Type": "AWS::Kinesis::Stream",
+      "Condition": "KinesisCondition",
+      "Properties": {
+        "Name": {
+          "Ref": "StreamName"
+        },
+        "ShardCount": 3,
+        "StreamEncryption": {
+          "EncryptionType": "KMS",
+          "KeyId": "alias/aws/kinesis"
+        }
+      }
+    },
+    "MSK": {
+      "Type": "AWS::MSK::Cluster",
+      "Condition": "KafkaCondition",
+      "Properties": {
+        "ClusterName": "Hbase-msk-demo",
+        "KafkaVersion": "2.6.2",
+        "NumberOfBrokerNodes": 2,
+        "EnhancedMonitoring": "PER_BROKER",
+        "EncryptionInfo": {
+          "EncryptionInTransit": {
+            "ClientBroker": "TLS_PLAINTEXT",
+            "InCluster": true
+          }
+        },
+        "BrokerNodeGroupInfo": {
+          "BrokerAZDistribution": "DEFAULT",
+          "InstanceType": "kafka.m5.large",
+          "SecurityGroups": [
+            {
+              "Ref": "EMRAdditionalSecurityGroup"
+            }
+          ],
+          "StorageInfo": {
+            "EBSStorageInfo": {
+              "VolumeSize": 2
+            }
+          },
+          "ClientSubnets": [
+            {
+              "Ref": "PrivateSubnet1"
+            },
+            {
+              "Ref": "PrivateSubnet2"
+            }
+          ]
+        }
+      }
+    },
+    "EMRClusterServiceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "elasticmapreduce.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole"
+        ],
+        "Path": "/"
+      }
+    },
+    "EMRClusterinstanceProfileRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role",
+          "arn:aws:iam::aws:policy/AmazonMSKReadOnlyAccess"
+        ],
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "KinesisStreamWriteAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "kinesis:PutRecord*",
+                    "kinesis:Get*",
+                    "kinesis:List*",
+                    "kinesis:Describe*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "EMRClusterinstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "EMRClusterinstanceProfileRole"
+          }
+        ]
+      }
+    },
+    "GetReqAttrs": {
+      "DependsOn": [
+        "TransformFunction"
+      ],
+      "Type": "Custom::GetReqAttrs",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "TransformFunction",
+            "Arn"
+          ]
+        },
+        "InputString": {
+          "Ref": "WritableS3Location"
+        }
+      }
+    },
+    "TransformFunction": {
+      "DependsOn": [
+        "AppLambdaExecutionRole"
+      ],
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Description": "This a helper Lambda function extracts prerequisite attributes for template",
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "",
+              [
+                "import traceback \n",
+                "import urllib3 \n",
+                "import cfnresponse \n",
+                "import boto3 \n",
+                "try: \n",
+                "  from urlparse import urlparse \n",
+                "except ImportError: \n",
+                "  from urllib.parse import urlparse \n",
+                "def handler(event, context): \n",
+                "  responseData = {} \n",
+                "  print(event) \n",
+                "  if event['RequestType'] == 'Create' or event['RequestType'] == 'Update': \n",
+                "    try: \n",
+                "      input = event[\"ResourceProperties\"][\"InputString\"] \n",
+                "      o = urlparse(input, allow_fragments=False) \n",
+                "      responseData['Bucket'] = o.netloc \n",
+                "      k = o.path[1:] \n",
+                "      responseData['Key'] = k \n",
+                "      cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData) \n",
+                "    except Exception: \n",
+                "      traceback.print_exc() \n",
+                "      cfnresponse.send(event, context, cfnresponse.FAILURE, responseData) \n",
+                "  elif event['RequestType'] == 'Delete': \n",
+                "    print(\"CustomResourceDelete\") \n",
+                "    responseData={} \n",
+                "    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData) \n",
+                "  else: \n",
+                "    responseData={} \n",
+                "    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData) \n"
+              ]
+            ]
+          }
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "AppLambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "python3.7",
+        "Timeout": 300
+      }
+    },
+    "EventSourceMapping": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "Condition": "KinesisCondition",
+      "Properties": {
+        "EventSourceArn": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:aws:kinesis:",
+              {
+                "Ref": "AWS::Region"
+              },
+              ":",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              ":stream/",
+              {
+                "Ref": "KinesisStream"
+              }
+            ]
+          ]
+        },
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaKinesisConsumer",
+            "Arn"
+          ]
+        },
+        "StartingPosition": "TRIM_HORIZON"
+      }
+    },
+    "AppLambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "DemoAppLambda",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:*",
+                    "logs:*",
+                    "elasticmapreduce:*",
+                    "ec2:CreateNetworkInterface",
+                    "ec2:DescribeNetworkInterfaces",
+                    "ec2:DeleteNetworkInterface",
+                    "ec2:DescribeSubnets",
+                    "ec2:DescribeVpcs",
+                    "ec2:DescribeSecurityGroups",
+                    "kinesis:List*",
+                    "kinesis:Get*",
+                    "kinesis:DescribeStream",
+                    "kafka:Describe*",
+                    "kafka:List*",
+                    "kafka:Get*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {}
+}
