@@ -466,6 +466,7 @@ If bulkload replication is set to enabled, hbase.replication.cluster.id had to a
 ]
 ``` 
 ## References
+* https://aws.amazon.com/blogs/big-data/stream-apache-hbase-edits-for-real-time-analytics/
 * https://issues.apache.org/jira/browse/HBASE-11367
 * https://issues.apache.org/jira/browse/HBASE-11992
 * https://issues.apache.org/jira/browse/HBASE-12254
